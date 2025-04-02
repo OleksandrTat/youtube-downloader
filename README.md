@@ -1,47 +1,54 @@
 # YouTube Video Downloader
 
-## 📝 Опис
-Цей **Python-скрипт** дозволяє завантажувати відео з YouTube за допомогою бібліотеки [`yt_dlp`](https://github.com/yt-dlp/yt-dlp). Він надає користувачам можливість вибору формату та якості завантаження, а також має зручний графічний інтерфейс для вибору папки призначення.
+## 📝 Description
+This **Python script** allows users to download YouTube videos using the [`yt_dlp`](https://github.com/yt-dlp/yt-dlp) library. It provides options for selecting the format and quality of the download, as well as a convenient graphical interface for choosing the destination folder.
+
+**This project is created for educational purposes only. The author does not support or encourage the use of this tool for copyright infringement or any other illegal activities. The user assumes full responsibility for using this program.**
 
 ---
 
-## 🚀 Основні можливості
-✅ **Перевірка наявності FFMPEG** – для правильного завантаження та конвертації файлів.  
-✅ **Вибір папки для завантаження** – через графічний інтерфейс.  
-✅ **Вибір формату та якості відео**:
-- 🎥 Відео + аудіо
-- 🎞️ Тільки відео
-- 🎵 Тільки аудіо  
-✅ **Відображення прогресу завантаження**.  
-✅ **Перевірка прав доступу до папки призначення**.  
-✅ **Діагностика помилок** для усунення можливих проблем.  
+## 🚀 Key Features
+✅ **Checks for FFMPEG availability** – ensures proper downloading and conversion of files.  
+✅ **Choose a download folder** – via a graphical interface.  
+✅ **Select video and audio format/quality**:
+- 🎥 Video + Audio
+- 🎞️ Video only
+- 🎵 Audio only  
+✅ **Displays download progress**.  
+✅ **Verifies access permissions for the destination folder**.  
+✅ **Error diagnostics** to help troubleshoot issues.  
 
 ---
 
-## 🔧 Встановлення та використання
+## 🔧 Installation & Usage
 
-### ▶️ Запуск через виконуваний файл (EXE)
-1. Завантажте `exe`-файл із [релізів](https://github.com/your-repo/releases) цього репозиторію.
-2. Запустіть його та дотримуйтеся інструкцій на екрані.
+### ▶️ Running via Executable (EXE)
+1. Download the `exe` file from the [releases](https://github.com/your-repo/releases) of this repository.
+2. Run it and follow the on-screen instructions.
 
-### 🐍 Запуск через Python
-1. Встановіть необхідні бібліотеки:
+### 🐍 Running via Python
+1. Install the required libraries:
    ```sh
    pip install yt_dlp tkinter
    ```
-2. Переконайтеся, що `ffmpeg` встановлений і доступний у змінній середовища `PATH`.
-3. Запустіть скрипт:
+2. Ensure that `ffmpeg` is installed and available in the `PATH` environment variable.
+3. Run the script:
    ```sh
    python downloader.py
    ```
 
 ---
 
-## ⚠️ Відповідальність
-Цей скрипт надається "як є" без жодних гарантій. **Власник репозиторію не несе відповідальності** за використання цього інструменту. Користувач **самостійно несе відповідальність** за дотримання умов використання YouTube та авторських прав.
+## ⚠️ Disclaimer
+This project is provided "as is" without any warranties, express or implied. **The author is not responsible** for any use of this software, including but not limited to possible copyright violations or any other unlawful activities. The use of this tool is entirely at the user's discretion and risk.
 
 ---
 
-## 📜 Ліцензія
+## 📜 License
+This project is licensed under the [MIT License](./LICENSE).
 
-Цей проєкт ліцензовано під MIT License.
+---
+
+## 👤 Author
+OleksandrTat
+
