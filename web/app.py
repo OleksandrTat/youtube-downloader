@@ -86,7 +86,7 @@ def get_available_formats(url):
                 combined_formats.sort(key=lambda x: x['resolution'], reverse=True)
                 
                 formats = {
-                    'video': video_formats,  # Обмежуємо кількість для кращого відображення
+                    'video': video_formats,
                     'audio': audio_formats,
                     'combined': combined_formats
                 }
@@ -190,6 +190,35 @@ def download_yt_video(url, format_option, merge_format, download_path, session_i
         sessions[session_id]['error'] = str(e)
         return False
 
+# Додаємо стандартні якості відео для універсального вибору
+def get_standard_resolutions(video_info):
+    """Додає стандартні якості відео"""
+    # Визначення стандартних роздільних здатностей
+    standard_resolutions = [
+        {'resolution': '4320p (8K)', 'format_id': 'best[height<=4320]', 'ext': 'mp4', 'filesize': 'Авто'},
+        {'resolution': '2160p (4K)', 'format_id': 'best[height<=2160]', 'ext': 'mp4', 'filesize': 'Авто'},
+        {'resolution': '1440p (2K)', 'format_id': 'best[height<=1440]', 'ext': 'mp4', 'filesize': 'Авто'},
+        {'resolution': '1080p (Full HD)', 'format_id': 'best[height<=1080]', 'ext': 'mp4', 'filesize': 'Авто'},
+        {'resolution': '720p (HD)', 'format_id': 'best[height<=720]', 'ext': 'mp4', 'filesize': 'Авто'},
+        {'resolution': '480p', 'format_id': 'best[height<=480]', 'ext': 'mp4', 'filesize': 'Авто'},
+        {'resolution': '360p', 'format_id': 'best[height<=360]', 'ext': 'mp4', 'filesize': 'Авто'},
+        {'resolution': '240p', 'format_id': 'best[height<=240]', 'ext': 'mp4', 'filesize': 'Авто'},
+        {'resolution': '144p', 'format_id': 'best[height<=144]', 'ext': 'mp4', 'filesize': 'Авто'}
+    ]
+    return standard_resolutions
+
+# Додаємо стандартні якості аудіо
+def get_standard_audio_qualities():
+    """Додає стандартні якості аудіо"""
+    standard_audio = [
+        {'note': 'Найкраща якість', 'format_id': 'bestaudio', 'ext': 'mp3', 'filesize': 'Авто'},
+        {'note': 'Висока якість (192kbps)', 'format_id': 'bestaudio[abr<=192]', 'ext': 'mp3', 'filesize': 'Авто'},
+        {'note': 'Середня якість (128kbps)', 'format_id': 'bestaudio[abr<=128]', 'ext': 'mp3', 'filesize': 'Авто'},
+        {'note': 'Низька якість (96kbps)', 'format_id': 'bestaudio[abr<=96]', 'ext': 'mp3', 'filesize': 'Авто'},
+        {'note': 'Найнижча якість (64kbps)', 'format_id': 'bestaudio[abr<=64]', 'ext': 'mp3', 'filesize': 'Авто'}
+    ]
+    return standard_audio
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -261,90 +290,83 @@ def handle_command():
         if format_choice == "1":  # Відео + аудіо
             sessions[session_id]['format_type'] = 'combined'
             available_formats = formats.get('combined', [])
-            if not available_formats and check_ffmpeg():
-                # Якщо немає комбінованих форматів, використовуємо найкращі відео та аудіо
-                sessions[session_id]['format'] = "bestvideo+bestaudio/best"
-                sessions[session_id]['merge_format'] = "mp4"
-                sessions[session_id]['state'] = 'confirmation'
-                
-                response = ("\n--- Підсумкова інформація ---\n"
-                          f"Назва відео: {video_info.get('title', 'Невідомо')}\n"
-                          f"URL відео: {sessions[session_id]['url']}\n"
-                          f"Вибраний формат: Найкраща якість (відео + аудіо)\n"
-                          "----------------------------\n\n"
-                          "Розпочати завантаження? (так/ні): ")
-                
-                sessions[session_id]['responses'].append(response)
-                return jsonify({'response': response})
-            else:
-                # Показуємо доступні комбіновані формати
-                response = "\n=== КРОК 2: Вибір якості ===\nДоступні формати відео + аудіо:\n"
-                for i, fmt in enumerate(available_formats, 1):
+            
+            # Додаємо стандартні роздільні здатності для вибору
+            standard_resolutions = get_standard_resolutions(video_info)
+            
+            # Показуємо всі доступні стандартні роздільні здатності + фактичні формати
+            response = "\n=== КРОК 2: Вибір якості ===\nДоступні формати відео + аудіо:\n"
+            
+            # Додаємо стандартні роздільні здатності
+            for i, fmt in enumerate(standard_resolutions, 1):
+                response += f"{i}. {fmt['resolution']} ({fmt['ext']}) - {fmt['filesize']}\n"
+            
+            if available_formats:
+                response += "\nТочні формати відео (як надано YouTube):\n"
+                for i, fmt in enumerate(available_formats, len(standard_resolutions) + 1):
                     response += f"{i}. {fmt['resolution']} ({fmt['ext']}) - {fmt['filesize']}\n"
-                response += "Виберіть номер формату: "
-                
-                sessions[session_id]['state'] = 'quality_selection'
-                sessions[session_id]['available_formats'] = available_formats
-                sessions[session_id]['responses'].append(response)
-                return jsonify({'response': response})
+            
+            response += "\nВиберіть номер формату: "
+            
+            combined_formats = standard_resolutions + available_formats
+            sessions[session_id]['state'] = 'quality_selection'
+            sessions[session_id]['available_formats'] = combined_formats
+            sessions[session_id]['responses'].append(response)
+            return jsonify({'response': response})
                 
         elif format_choice == "2":  # Тільки відео
             sessions[session_id]['format_type'] = 'video'
             available_formats = formats.get('video', [])
-            if not available_formats:
-                sessions[session_id]['format'] = "bestvideo/best[vcodec!=none]"
-                sessions[session_id]['merge_format'] = None
-                sessions[session_id]['state'] = 'confirmation'
-                
-                response = ("\n--- Підсумкова інформація ---\n"
-                          f"Назва відео: {video_info.get('title', 'Невідомо')}\n"
-                          f"URL відео: {sessions[session_id]['url']}\n"
-                          f"Вибраний формат: Тільки відео (найкраща якість)\n"
-                          "----------------------------\n\n"
-                          "Розпочати завантаження? (так/ні): ")
-                
-                sessions[session_id]['responses'].append(response)
-                return jsonify({'response': response})
-            else:
-                # Показуємо доступні відео формати
-                response = "\n=== КРОК 2: Вибір якості ===\nДоступні формати відео (без звуку):\n"
-                for i, fmt in enumerate(available_formats, 1):
+            
+            # Додаємо стандартні роздільні здатності для вибору
+            standard_resolutions = get_standard_resolutions(video_info)
+            
+            # Показуємо всі доступні роздільні здатності
+            response = "\n=== КРОК 2: Вибір якості ===\nДоступні формати відео (без звуку):\n"
+            
+            # Додаємо стандартні роздільні здатності
+            for i, fmt in enumerate(standard_resolutions, 1):
+                response += f"{i}. {fmt['resolution']} ({fmt['ext']}) - {fmt['filesize']}\n"
+            
+            if available_formats:
+                response += "\nТочні формати відео (як надано YouTube):\n"
+                for i, fmt in enumerate(available_formats, len(standard_resolutions) + 1):
                     response += f"{i}. {fmt['resolution']} ({fmt['ext']}) - {fmt['filesize']}\n"
-                response += "Виберіть номер формату: "
-                
-                sessions[session_id]['state'] = 'quality_selection'
-                sessions[session_id]['available_formats'] = available_formats
-                sessions[session_id]['responses'].append(response)
-                return jsonify({'response': response})
+            
+            response += "\nВиберіть номер формату: "
+            
+            combined_formats = standard_resolutions + available_formats
+            sessions[session_id]['state'] = 'quality_selection'
+            sessions[session_id]['available_formats'] = combined_formats
+            sessions[session_id]['responses'].append(response)
+            return jsonify({'response': response})
                 
         elif format_choice == "3":  # Тільки аудіо
             sessions[session_id]['format_type'] = 'audio'
             available_formats = formats.get('audio', [])
-            if not available_formats:
-                sessions[session_id]['format'] = "bestaudio"
-                sessions[session_id]['merge_format'] = None
-                sessions[session_id]['state'] = 'confirmation'
-                
-                response = ("\n--- Підсумкова інформація ---\n"
-                          f"Назва відео: {video_info.get('title', 'Невідомо')}\n"
-                          f"URL відео: {sessions[session_id]['url']}\n"
-                          f"Вибраний формат: Тільки аудіо (найкраща якість)\n"
-                          "----------------------------\n\n"
-                          "Розпочати завантаження? (так/ні): ")
-                
-                sessions[session_id]['responses'].append(response)
-                return jsonify({'response': response})
-            else:
-                # Показуємо доступні аудіо формати
-                response = "\n=== КРОК 2: Вибір якості ===\nДоступні формати аудіо:\n"
-                for i, fmt in enumerate(available_formats, 1):
+            
+            # Додаємо стандартні якості аудіо
+            standard_audio = get_standard_audio_qualities()
+            
+            # Показуємо всі доступні якості аудіо
+            response = "\n=== КРОК 2: Вибір якості ===\nДоступні формати аудіо:\n"
+            
+            # Додаємо стандартні якості аудіо
+            for i, fmt in enumerate(standard_audio, 1):
+                response += f"{i}. {fmt['note']} ({fmt['ext']}) - {fmt['filesize']}\n"
+            
+            if available_formats:
+                response += "\nТочні формати аудіо (як надано YouTube):\n"
+                for i, fmt in enumerate(available_formats, len(standard_audio) + 1):
                     response += f"{i}. {fmt['note']} ({fmt['ext']}) - {fmt['filesize']}\n"
-                response += "Виберіть номер формату: "
-                
-                sessions[session_id]['state'] = 'quality_selection'
-                sessions[session_id]['available_formats'] = available_formats
-                sessions[session_id]['responses'].append(response)
-                return jsonify({'response': response})
+            
+            response += "\nВиберіть номер формату: "
+            
+            combined_formats = standard_audio + available_formats
+            sessions[session_id]['state'] = 'quality_selection'
+            sessions[session_id]['available_formats'] = combined_formats
+            sessions[session_id]['responses'].append(response)
+            return jsonify({'response': response})
                 
         elif format_choice == "4":  # І відео, і аудіо окремо
             sessions[session_id]['format_type'] = 'separate'
@@ -381,10 +403,15 @@ def handle_command():
                 
                 # Зберігаємо вибраний формат
                 sessions[session_id]['format'] = selected_format['format_id']
-                sessions[session_id]['merge_format'] = None
+                # Визначаємо формат для обʼєднання (only for combined)
+                format_type = sessions[session_id]['format_type']
+                if format_type == 'combined' or format_type == 'audio':
+                    ext = selected_format.get('ext', 'mp4')
+                    sessions[session_id]['merge_format'] = ext
+                else:
+                    sessions[session_id]['merge_format'] = None
                 
                 # Формуємо інформацію для підтвердження
-                format_type = sessions[session_id]['format_type']
                 format_info = ""
                 
                 if format_type == 'combined':
@@ -392,7 +419,7 @@ def handle_command():
                 elif format_type == 'video':
                     format_info = f"Тільки відео {selected_format['resolution']} ({selected_format['ext']})"
                 elif format_type == 'audio':
-                    format_info = f"Тільки аудіо {selected_format['note']} ({selected_format['ext']})"
+                    format_info = f"Тільки аудіо {selected_format.get('note', 'Стандартна якість')} ({selected_format['ext']})"
                 
                 # Перейти до підтвердження
                 sessions[session_id]['state'] = 'confirmation'
