@@ -1,0 +1,287 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Video Downloader</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #1e1e1e;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .terminal {
+            background-color: #000;
+            border-radius: 5px;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            color: #00ff00;
+        }
+        .command-input {
+            width: 100%;
+            padding: 10px;
+            background-color: #000;
+            color: #00ff00;
+            border: 1px solid #444;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+        }
+        .command-input:focus {
+            outline: none;
+            border-color: #00ff00;
+        }
+        .download-link {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 15px;
+            background-color: #00ff00;
+            color: #000;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .progress-bar {
+            width: 100%;
+            background-color: #444;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+        .progress-bar-inner {
+            height: 20px;
+            background-color: #00ff00;
+            border-radius: 5px;
+            width: 0%;
+            transition: width 0.3s;
+            text-align: center;
+            line-height: 20px;
+            color: #000;
+            font-weight: bold;
+        }
+        h1 {
+            text-align: center;
+            color: #00ff00;
+            margin-bottom: 30px;
+        }
+        .info {
+            background-color: #333;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>YouTube Video Downloader</h1>
+        
+        <div class="info">
+            <p><strong>Про програму:</strong> Цей інтерфейс надає доступ до скрипта Python для завантаження відео з YouTube. Використовує yt-dlp та ffmpeg для обробки даних.</p>
+            <p><strong>Необхідні компоненти:</strong> yt-dlp та ffmpeg повинні бути встановлені на сервері для повної функціональності.</p>
+        </div>
+        
+        <div id="terminal" class="terminal"></div>
+        
+        <div id="progress-bar" class="progress-bar">
+            <div id="progress-bar-inner" class="progress-bar-inner">0%</div>
+        </div>
+        
+        <div id="download-container" style="display: none; margin-top: 10px; text-align: center;">
+            <a id="download-link" href="#" class="download-link" download>Завантажити відео</a>
+        </div>
+        
+        <input type="text" id="command-input" class="command-input" placeholder="Введіть команду..." autofocus>
+    </div>
+
+    <script>
+        let sessionId = null;
+        let isDownloading = false;
+        let statusInterval = null;
+        const terminal = document.getElementById('terminal');
+        const commandInput = document.getElementById('command-input');
+        const progressBar = document.getElementById('progress-bar');
+        const progressBarInner = document.getElementById('progress-bar-inner');
+        const downloadContainer = document.getElementById('download-container');
+        const downloadLink = document.getElementById('download-link');
+
+        // Створюємо нову сесію при завантаженні сторінки
+        async function createSession() {
+            try {
+                const response = await fetch('/start-session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                sessionId = data.session_id;
+                
+                // Виводимо початкове повідомлення
+                appendToTerminal("=== YouTube Video Downloader ===\nВведіть URL відео YouTube:");
+            } catch (error) {
+                console.error('Помилка створення сесії:', error);
+                appendToTerminal("Помилка: Не вдалося підключитися до сервера. Оновіть сторінку і спробуйте знову.");
+            }
+        }
+
+        // Додаємо текст в термінал
+        function appendToTerminal(text) {
+            terminal.textContent += text + "\n";
+            terminal.scrollTop = terminal.scrollHeight; // Автоматична прокрутка вниз
+        }
+
+        // Обробка введених команд
+        async function handleCommand(e) {
+            if (e.key === 'Enter') {
+                const command = commandInput.value.trim();
+                if (!command) return;
+                
+                // Додаємо команду до терміналу
+                appendToTerminal("> " + command);
+                commandInput.value = "";
+                
+                if (isDownloading) {
+                    appendToTerminal("Зачекайте, завантаження в процесі...");
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/command', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            session_id: sessionId,
+                            command: command
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    // Виводимо відповідь в термінал
+                    appendToTerminal(data.response);
+                    
+                    // Якщо розпочато завантаження, запускаємо перевірку прогресу
+                    if (data.status === 'downloading') {
+                        isDownloading = true;
+                        progressBar.style.display = 'block';
+                        startStatusCheck();
+                    }
+                } catch (error) {
+                    console.error('Помилка при обробці команди:', error);
+                    appendToTerminal("Помилка: Не вдалося з'єднатися з сервером. Спробуйте ще раз.");
+                }
+            }
+        }
+
+        // Перевірка статусу завантаження
+        async function checkStatus() {
+            try {
+                const response = await fetch(`/status/${sessionId}`);
+                const data = await response.json();
+                
+                if (data.status === 'downloading') {
+                    // Оновлюємо прогрес-бар
+                    if (data.progress && data.progress.percent) {
+                        const percentStr = data.progress.percent;
+                        const percentNum = parseFloat(percentStr);
+                        
+                        if (!isNaN(percentNum)) {
+                            progressBarInner.style.width = percentStr;
+                            progressBarInner.textContent = percentStr;
+                        }
+                        
+                        // Виводимо інформацію про швидкість і час, що залишився
+                        const statusText = `Завантаження: ${data.progress.percent} швидкість: ${data.progress.speed || 'N/A'} залишилось: ${data.progress.eta || 'N/A'}`;
+                        // Оновлюємо останній рядок в терміналі
+                        const terminalLines = terminal.textContent.split('\n');
+                        if (terminalLines[terminalLines.length - 2] && terminalLines[terminalLines.length - 2].startsWith('Завантаження:')) {
+                            terminalLines.splice(terminalLines.length - 2, 1, statusText);
+                            terminal.textContent = terminalLines.join('\n');
+                        } else {
+                            appendToTerminal(statusText);
+                        }
+                    }
+                } 
+                else if (data.status === 'completed') {
+                    // Завантаження завершено успішно
+                    clearInterval(statusInterval);
+                    isDownloading = false;
+                    progressBarInner.style.width = '100%';
+                    progressBarInner.textContent = '100%';
+                    
+                    appendToTerminal("\nЗавантаження успішно завершено!");
+                    appendToTerminal(`Файл: ${data.file.name}`);
+                    
+                    // Показуємо посилання на завантаження
+                    downloadLink.href = data.file.url;
+                    downloadLink.textContent = `Завантажити "${data.file.name}"`;
+                    downloadContainer.style.display = 'block';
+                    
+                    // Чистимо інтервал
+                    clearInterval(statusInterval);
+                }
+                else if (data.status === 'error') {
+                    // Помилка завантаження
+                    clearInterval(statusInterval);
+                    isDownloading = false;
+                    appendToTerminal("\nПомилка завантаження: " + data.error);
+                    appendToTerminal("Спробуйте ще раз з іншим URL або форматом.");
+                }
+            } catch (error) {
+                console.error('Помилка при перевірці статусу:', error);
+            }
+        }
+
+        // Запуск перевірки статусу з інтервалом
+        function startStatusCheck() {
+            // Спочатку очищаємо існуючий інтервал, якщо він є
+            if (statusInterval) {
+                clearInterval(statusInterval);
+            }
+            // Запускаємо новий інтервал
+            statusInterval = setInterval(checkStatus, 1000);
+        }
+
+        // Очищення ресурсів перед закриттям вікна
+        window.addEventListener('beforeunload', async () => {
+            if (sessionId) {
+                try {
+                    await fetch('/cleanup', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            session_id: sessionId
+                        })
+                    });
+                } catch (error) {
+                    console.error('Помилка при очищенні сесії:', error);
+                }
+            }
+        });
+
+        // Ініціалізація сторінки
+        document.addEventListener('DOMContentLoaded', createSession);
+        commandInput.addEventListener('keypress', handleCommand);
+    </script>
+</body>
+</html>
